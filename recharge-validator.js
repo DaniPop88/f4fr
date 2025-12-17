@@ -1,7 +1,26 @@
+const RECHARGE_SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/1c6gnCngs2wFOvVayd5XpM9D3LOlKUxtSjl7gfszXcMg/export?format=csv&gid=0';
+
 class RechargeValidator {
     constructor() {
         this.recharges = [];
         this.validatedEntries = [];
+        this.lastFetchTime = null;
+    }
+
+    async fetchRechargeData() {
+        try {
+            const response = await fetch(RECHARGE_SHEET_CSV_URL);
+            if (!response.ok) {
+                throw new Error('Failed to fetch recharge data from Google Sheets');
+            }
+            const csvText = await response.text();
+            this.parseRechargeCSV(csvText);
+            this.lastFetchTime = new Date();
+            return this.recharges;
+        } catch (error) {
+            console.error('Error fetching recharge data:', error);
+            throw error;
+        }
     }
 
     parseRechargeCSV(csvText) {
