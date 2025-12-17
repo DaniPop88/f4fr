@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lottery Admin Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>🎰 Lottery Admin Dashboard</h1>
+            <button id="refreshBtn" class="btn-refresh">🔄 Refresh Data</button>
+        </div>
+    </header>
+
+    <nav class="navbar">
+        <div class="container">
+            <a href="index.html" class="active">Dashboard</a>
+            <a href="pages/entries.html">All Entries</a>
+            <a href="pages/results.html">Contest Results</a>
+            <a href="pages/winners. html">Winners</a>
+            <a href="pages/reports.html">Reports</a>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div id="loadingIndicator" class="loading">Loading data...</div>
+        <div id="errorMessage" class="error-message" style="display: none;"></div>
+
+        <div id="statsContainer" class="stats-grid">
+            <div class="stat-card">
+                <h3>Total Entries</h3>
+                <p class="stat-number" id="totalEntries">0</p>
+            </div>
+            <div class="stat-card">
+                <h3>Unique Contests</h3>
+                <p class="stat-number" id="uniqueContests">0</p>
+            </div>
+            <div class="stat-card">
+                <h3>Draw Dates</h3>
+                <p class="stat-number" id="uniqueDrawDates">0</p>
+            </div>
+            <div class="stat-card">
+                <h3>Pending Entries</h3>
+                <p class="stat-number" id="pendingEntries">0</p>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Entries by Contest</h2>
+            <div id="contestBreakdown" class="breakdown-container"></div>
+        </div>
+
+        <div class="section">
+            <h2>Entries by Draw Date</h2>
+            <div id="dateBreakdown" class="breakdown-container"></div>
+        </div>
+
+        <div class="section">
+            <h2>Recent Entries</h2>
+            <div class="table-container">
+                <table id="recentEntriesTable">
+                    <thead>
+                        <tr>
+                            <th>Registration Date/Time</th>
+                            <th>Game ID</th>
+                            <th>WhatsApp</th>
+                            <th>Chosen Numbers</th>
+                            <th>Draw Date</th>
+                            <th>Contest</th>
+                            <th>Ticket #</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recentEntriesBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>Last Updated: <span id="lastUpdate">Never</span></p>
+        </div>
+    </footer>
+
+    <script src="data-fetcher.js"></script>
+    <script src="validator.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

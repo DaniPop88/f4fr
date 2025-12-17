@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Winners - Lottery Admin</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>🎰 Lottery Admin Dashboard</h1>
+            <button id="refreshBtn" class="btn-refresh">🔄 Refresh Data</button>
+        </div>
+    </header>
+
+    <nav class="navbar">
+        <div class="container">
+            <a href="../index.html">Dashboard</a>
+            <a href="entries. html">All Entries</a>
+            <a href="results. html">Contest Results</a>
+            <a href="winners.html" class="active">Winners</a>
+            <a href="reports.html">Reports</a>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div id="loadingIndicator" class="loading">Loading data...</div>
+        <div id="errorMessage" class="error-message" style="display: none;"></div>
+
+        <div class="section">
+            <h2>Winners Summary</h2>
+            
+            <div class="stats-grid">
+                <div class="stat-card" style="background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);">
+                    <h3 style="color: #333;">🏆 Grand Prize (5 matches)</h3>
+                    <p class="stat-number" id="grandPrizeCount" style="color: #333;">0</p>
+                </div>
+                <div class="stat-card" style="background:  linear-gradient(135deg, #C0C0C0 0%, #A8A8A8 100%);">
+                    <h3 style="color: #333;">🥈 2nd Prize (4 matches)</h3>
+                    <p class="stat-number" id="secondPrizeCount" style="color: #333;">0</p>
+                </div>
+                <div class="stat-card" style="background: linear-gradient(135deg, #CD7F32 0%, #B8732D 100%);">
+                    <h3 style="color: white;">🥉 3rd Prize (3 matches)</h3>
+                    <p class="stat-number" id="thirdPrizeCount" style="color: white;">0</p>
+                </div>
+                <div class="stat-card" style="background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);">
+                    <h3 style="color:  white;">🎁 Consolation (2 matches)</h3>
+                    <p class="stat-number" id="consolationCount" style="color: white;">0</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Filter Winners</h2>
+            
+            <div class="filter-section">
+                <div class="filter-grid">
+                    <div class="filter-item">
+                        <label>Contest</label>
+                        <select id="filterContest">
+                            <option value="">All Contests</option>
+                        </select>
+                    </div>
+                    <div class="filter-item">
+                        <label>Draw Date</label>
+                        <select id="filterDrawDate">
+                            <option value="">All Dates</option>
+                        </select>
+                    </div>
+                    <div class="filter-item">
+                        <label>Prize Tier</label>
+                        <select id="filterPrizeTier">
+                            <option value="">All Prizes</option>
+                            <option value="5">Grand Prize (5 matches)</option>
+                            <option value="4">2nd Prize (4 matches)</option>
+                            <option value="3">3rd Prize (3 matches)</option>
+                            <option value="2">Consolation (2 matches)</option>
+                        </select>
+                    </div>
+                    <div class="filter-item">
+                        <label>WhatsApp</label>
+                        <input type="text" id="filterWhatsApp" placeholder="Search WhatsApp">
+                    </div>
+                </div>
+                <div style="display: flex; gap: 10px; margin-top: 15px;">
+                    <button id="validateBtn" class="btn-success">🔍 Validate All Winners</button>
+                    <button id="exportWinnersBtn" class="btn-primary">📥 Export Winners</button>
+                    <button id="clearFiltersBtn" class="btn-warning">Clear Filters</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>🏆 Winners List</h2>
+            
+            <div id="noResultsMessage" style="display: none; text-align: center; padding: 40px; color: #999;">
+                <h3>⚠️ No Results Configured</h3>
+                <p>Please add contest results first in the <a href="results.html">Contest Results</a> page</p>
+            </div>
+
+            <div id="noWinnersMessage" style="display:  none; text-align: center; padding: 40px; color:  #999;">
+                <h3>😔 No Winners Found</h3>
+                <p>No entries matched 2 or more numbers for the selected criteria</p>
+            </div>
+
+            <div class="table-container" id="winnersTableContainer">
+                <table id="winnersTable">
+                    <thead>
+                        <tr>
+                            <th>Prize</th>
+                            <th>Matches</th>
+                            <th>Registration Date/Time</th>
+                            <th>Game ID</th>
+                            <th>WhatsApp</th>
+                            <th>Chosen Numbers</th>
+                            <th>Winning Numbers</th>
+                            <th>Matched Numbers</th>
+                            <th>Draw Date</th>
+                            <th>Contest</th>
+                            <th>Ticket #</th>
+                        </tr>
+                    </thead>
+                    <tbody id="winnersTableBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>Last Updated: <span id="lastUpdate">Never</span></p>
+        </div>
+    </footer>
+
+    <script src="../data-fetcher. js"></script>
+    <script src="../validator.js"></script>
+    <script>
+        let allWinners = [];
+        let filteredWinners = [];
+
+        async function init() {
+            showLoading(true);
+            try {
+                await dataFetcher.fetchData();
+                populateFilters();
+                validateAndDisplayWinners();
+                updateLastUpdateTime();
+                showLoading(false);
+                setupEventListeners();
+            } catch (error) {
+                showError('Failed to load data:  ' + error.message);
+                showLoading(false);
+            }
+        }
+
+        function populateFilters() {
+            const contests = dataFetcher.getUniqueContests();
+            const dates = dataFetcher. getUniqueDrawDates();
+            
+            const contestSelect = document.getElementById('filterContest');
+            contests.forEach(contest => {
+                const option = document. createElement('option');
+                option. value = contest;
+                option. textContent = contest;
+                contestSelect.appendChild(option);
+            });
+            
+            const dateSelect = document.getElementById('filterDrawDate');
+            dates.forEach(date => {
+                const option = document.createElement('option');
+                option.value = date;
+                option.textContent = date;
+                dateSelect.appendChild(option);
+            });
+        }
+
+        function validateAndDisplayWinners() {
+            const allEntries = dataFetcher.getAllEntries();
+            
+            // Check if any results are configured
+            const results = validator.getAllResults();
+            if (results.length === 0) {
+                document.getElementById('noResultsMessage').style.display = 'block';
+                document. getElementById('winnersTableContainer').style.display = 'none';
+                document.getElementById('noWinnersMessage').style.display = 'none';
+                updateWinnersSummary(0, 0, 0, 0);
+                return;
+            }
+            
+            document.getElementById('noResultsMessage').style.display = 'none';
+            
+            allWinners = validator.getWinners(allEntries);
+            applyFilters();
+        }
+
+        function applyFilters() {
+            const contest = document.getElementById('filterContest').value;
+            const drawDate = document.getElementById('filterDrawDate').value;
+            const prizeTier = document.getElementById('filterPrizeTier').value;
+            const whatsapp = document.getElementById('filterWhatsApp').value.toLowerCase();
+            
+            filteredWinners = allWinners.filter(winner => {
+                if (contest && winner.contest !== contest) return false;
+                if (drawDate && winner.drawDate !== drawDate) return false;
+                if (prizeTier && winner. validation. matches !== parseInt(prizeTier)) return false;
+                if (whatsapp && !winner.whatsapp.toLowerCase().includes(whatsapp)) return false;
+                return true;
+            });
+            
+            displayWinners();
+            updateWinnersSummary();
+        }
+
+        function displayWinners() {
+            const tbody = document.getElementById('winnersTableBody');
+            tbody.innerHTML = '';
+            
+            if (filteredWinners.length === 0) {
+                document.getElementById('noWinnersMessage').style.display = 'block';
+                document.getElementById('winnersTableContainer').style.display = 'none';
+                return;
+            }
+            
+            document.getElementById('noWinnersMessage').style.display = 'none';
+            document.getElementById('winnersTableContainer').style.display = 'block';
+            
+            filteredWinners.forEach(winner => {
+                const val = winner.validation;
+                const row = tbody.insertRow();
+                
+                let prizeEmoji = '';
+                let prizeBadgeClass = '';
+                
+                switch(val.matches) {
+                    case 5:
+                        prizeEmoji = '🏆';
+                        prizeBadgeClass = 'badge-gold';
+                        break;
+                    case 4:
+                        prizeEmoji = '🥈';
+                        prizeBadgeClass = 'badge-silver';
+                        break;
+                    case 3:
+                        prizeEmoji = '🥉';
+                        prizeBadgeClass = 'badge-bronze';
+                        break;
+                    case 2:
+                        prizeEmoji = '🎁';
+                        prizeBadgeClass = 'badge-green';
+                        break;
+                }
+                
+                const chosenHTML = winner.chosenNumbers.map(num => {
+                    const isMatch = val.matchedNumbers.includes(num);
+                    return isMatch ? 
+                        `<span style="background: #4CAF50; color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold;">${num}</span>` : 
+                        `<span>${num}</span>`;
+                }).join(', ');
+                
+                const matchedHTML = val.matchedNumbers
+                    .map(num => `<span style="background: #FFD700; color: #333; padding: 2px 6px; border-radius: 4px; font-weight: bold;">${num}</span>`)
+                    .join(', ');
+                
+                row.innerHTML = `
+                    <td><span class="badge ${prizeBadgeClass}">${prizeEmoji} ${val.prizeTier. tier}</span></td>
+                    <td><strong style="font-size: 20px; color: #1e3c72;">${val.matches}</strong></td>
+                    <td>${winner.registrationDateTime}</td>
+                    <td>${winner.gameId}</td>
+                    <td><strong>${winner.whatsapp}</strong></td>
+                    <td style="font-size: 14px;">${chosenHTML}</td>
+                    <td style="font-size: 14px;"><strong>${val.winningNumbers.join(', ')}</strong></td>
+                    <td style="font-size: 14px;">${matchedHTML}</td>
+                    <td>${winner.drawDate}</td>
+                    <td><span class="badge badge-primary">${winner.contest}</span></td>
+                    <td>${winner.ticketNumber}</td>
+                `;
+            });
+        }
+
+        function updateWinnersSummary(grand, second, third, consolation) {
+            if (arguments.length === 0) {
+                grand = filteredWinners.filter(w => w.validation.matches === 5).length;
+                second = filteredWinners.filter(w => w.validation.matches === 4).length;
+                third = filteredWinners.filter(w => w.validation.matches === 3).length;
+                consolation = filteredWinners.filter(w => w.validation.matches === 2).length;
+            }
+            
+            document.getElementById('grandPrizeCount').textContent = grand;
+            document.getElementById('secondPrizeCount').textContent = second;
+            document.getElementById('thirdPrizeCount').textContent = third;
+            document.getElementById('consolationCount').textContent = consolation;
+        }
+
+        function exportWinners() {
+            if (filteredWinners.length === 0) {
+                alert('No winners to export');
+                return;
+            }
+            
+            let csv = 'Prize Tier,Matches,Registration Date/Time,Game ID,WhatsApp,Chosen Numbers,Winning Numbers,Matched Numbers,Draw Date,Contest,Ticket #\n';
+            
+            filteredWinners.forEach(winner => {
+                const val = winner.validation;
+                csv += `"${val.prizeTier.tier}",`;
+                csv += `"${val.matches}",`;
+                csv += `"${winner.registrationDateTime}",`;
+                csv += `"${winner.gameId}",`;
+                csv += `"${winner.whatsapp}",`;
+                csv += `"${winner.chosenNumbers.join(', ')}",`;
+                csv += `"${val.winningNumbers.join(', ')}",`;
+                csv += `"${val.matchedNumbers.join(', ')}",`;
+                csv += `"${winner.drawDate}",`;
+                csv += `"${winner.contest}",`;
+                csv += `"${winner.ticketNumber}"\n`;
+            });
+            
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document. createElement('a');
+            a.href = url;
+            a. download = `lottery_winners_${new Date().toISOString()}.csv`;
+            a.click();
+        }
+
+        function setupEventListeners() {
+            document.getElementById('validateBtn').addEventListener('click', validateAndDisplayWinners);
+            document.getElementById('exportWinnersBtn').addEventListener('click', exportWinners);
+            document.getElementById('refreshBtn').addEventListener('click', init);
+            
+            document.getElementById('filterContest').addEventListener('change', applyFilters);
+            document. getElementById('filterDrawDate').addEventListener('change', applyFilters);
+            document.getElementById('filterPrizeTier').addEventListener('change', applyFilters);
+            document. getElementById('filterWhatsApp').addEventListener('input', applyFilters);
+            
+            document.getElementById('clearFiltersBtn').addEventListener('click', () => {
+                document.getElementById('filterContest').value = '';
+                document.getElementById('filterDrawDate').value = '';
+                document. getElementById('filterPrizeTier').value = '';
+                document.getElementById('filterWhatsApp').value = '';
+                applyFilters();
+            });
+        }
+
+        function showLoading(show) {
+            const loading = document.getElementById('loadingIndicator');
+            if (loading) {
+                loading.style. display = show ? 'block' : 'none';
+            }
+        }
+
+        function showError(message) {
+            const errorMsg = document.getElementById('errorMessage');
+            if (errorMsg) {
+                errorMsg.textContent = message;
+                errorMsg.style.display = 'block';
+            }
+        }
+
+        function updateLastUpdateTime() {
+            const lastUpdate = document.getElementById('lastUpdate');
+            if (dataFetcher.lastFetchTime) {
+                lastUpdate. textContent = dataFetcher.lastFetchTime. toLocaleString('pt-BR');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

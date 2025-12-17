@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Setup Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-box {
+            background: white;
+            padding: 20px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border-left: 4px solid #ccc;
+        }
+        .test-box.success {
+            border-left-color: #4CAF50;
+        }
+        .test-box.error {
+            border-left-color: #f44336;
+        }
+        h1 { color: #1e3c72; }
+        .status { font-weight: bold; font-size: 18px; }
+        .status.ok { color: #4CAF50; }
+        .status.fail { color: #f44336; }
+        button {
+            background: #1e3c72;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 0;
+        }
+        button:hover {
+            background: #2a5298;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 Dashboard Setup Test</h1>
+    <p>This page will test if your dashboard is set up correctly.</p>
+    
+    <button onclick="runTests()">▶️ Run Tests</button>
+    
+    <div id="results"></div>
+
+    <script>
+        async function runTests() {
+            const results = document.getElementById('results');
+            results.innerHTML = '<p>Running tests...</p>';
+            
+            const tests = [];
+            
+            // Test 1: Check if data-fetcher.js exists
+            tests.push(await testFile('data-fetcher.js', 'DataFetcher'));
+            
+            // Test 2: Check if validator.js exists
+            tests.push(await testFile('validator.js', 'LotteryValidator'));
+            
+            // Test 3: Check if recharge-validator.js exists
+            tests.push(await testFile('recharge-validator.js', 'RechargeValidator'));
+            
+            // Test 4: Check if styles.css exists
+            tests.push(await testFile('styles.css', null));
+            
+            // Test 5: Check if pages folder accessible
+            tests.push(await testFile('pages/entries.html', null));
+            
+            // Display results
+            let html = '<h2>Test Results:</h2>';
+            let allPassed = true;
+            
+            tests.forEach((test, i) => {
+                const className = test.passed ? 'success' : 'error';
+                const statusClass = test.passed ? 'ok' : 'fail';
+                const statusText = test.passed ? '✅ PASS' : '❌ FAIL';
+                
+                html += `
+                    <div class="test-box ${className}">
+                        <div><strong>Test ${i + 1}:</strong> ${test.name}</div>
+                        <div class="status ${statusClass}">${statusText}</div>
+                        ${test.message ? `<div style="margin-top: 10px; color: #666;">${test.message}</div>` : ''}
+                    </div>
+                `;
+                
+                if (!test.passed) allPassed = false;
+            });
+            
+            if (allPassed) {
+                html += `
+                    <div class="test-box success" style="margin-top: 30px;">
+                        <h3 style="color: #4CAF50; margin: 0;">🎉 ALL TESTS PASSED!</h3>
+                        <p style="margin-top: 10px;">Your dashboard is set up correctly.</p>
+                        <p><a href="index.html" style="color: #1e3c72; font-weight: bold;">→ Open Dashboard</a></p>
+                    </div>
+                `;
+            } else {
+                html += `
+                    <div class="test-box error" style="margin-top: 30px;">
+                        <h3 style="color: #f44336; margin: 0;">⚠️ SETUP INCOMPLETE</h3>
+                        <p style="margin-top: 10px;">Please fix the failed tests above.</p>
+                        <p>Make sure all files are in the correct folders as shown in README-FIXED.md</p>
+                    </div>
+                `;
+            }
+            
+            results.innerHTML = html;
+        }
+        
+        async function testFile(filename, className) {
+            try {
+                const response = await fetch(filename, { method: 'HEAD' });
+                if (response.ok) {
+                    // If className provided, check if class is defined
+                    if (className) {
+                        // Load the script dynamically
+                        return new Promise((resolve) => {
+                            const script = document.createElement('script');
+                            script.src = filename;
+                            script.onload = () => {
+                                const isDefined = typeof window[className] !== 'undefined';
+                                resolve({
+                                    name: `${filename} loaded and ${className} defined`,
+                                    passed: isDefined,
+                                    message: isDefined ? null : `${className} class not found in ${filename}`
+                                });
+                            };
+                            script.onerror = () => {
+                                resolve({
+                                    name: `${filename} exists`,
+                                    passed: false,
+                                    message: `Failed to load ${filename}`
+                                });
+                            };
+                            document.head.appendChild(script);
+                        });
+                    } else {
+                        return {
+                            name: `${filename} exists`,
+                            passed: true,
+                            message: null
+                        };
+                    }
+                } else {
+                    return {
+                        name: `${filename} exists`,
+                        passed: false,
+                        message: `File not found: ${filename}`
+                    };
+                }
+            } catch (error) {
+                return {
+                    name: `${filename} exists`,
+                    passed: false,
+                    message: `Error checking ${filename}: ${error.message}`
+                };
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>All Entries - Lottery Admin</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>🎰 Lottery Admin Dashboard</h1>
+            <button id="refreshBtn" class="btn-refresh">🔄 Refresh Data</button>
+        </div>
+    </header>
+
+    <nav class="navbar">
+        <div class="container">
+            <a href="../index.html">Dashboard</a>
+            <a href="entries.html" class="active">All Entries</a>
+            <a href="results.html">Contest Results</a>
+            <a href="winners.html">Winners</a>
+            <a href="reports.html">Reports</a>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div id="loadingIndicator" class="loading">Loading data...</div>
+        <div id="errorMessage" class="error-message" style="display: none;"></div>
+
+        <!-- Recharge Upload Section -->
+        <div class="section" style="background: #fff3cd; border-left: 4px solid #ffc107;">
+            <h2>📤 Upload Recharge Data (Required for Validity Check)</h2>
+            <p style="margin-bottom: 15px;">Upload the account_change CSV file to validate ticket legitimacy based on recharge timeline.</p>
+            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                <input type="file" id="rechargeFileInput" accept=".csv" style="padding: 10px;">
+                <button id="uploadRechargeBtn" class="btn-success">Upload & Validate</button>
+                <button id="clearRechargeBtn" class="btn-danger" style="display: none;">Clear Recharge Data</button>
+                <span id="rechargeStatus" style="margin-left: 10px; font-weight: bold;"></span>
+            </div>
+        </div>
+
+        <!-- Validation Statistics -->
+        <div id="validationStats" class="stats-grid" style="display: none;">
+            <div class="stat-card" style="background: #d4edda; border-left: 4px solid #28a745;">
+                <h3>✅ Valid Tickets</h3>
+                <p class="stat-number" id="validCount" style="color: #28a745;">0</p>
+            </div>
+            <div class="stat-card" style="background: #f8d7da; border-left: 4px solid #dc3545;">
+                <h3>❌ Invalid Tickets</h3>
+                <p class="stat-number" id="invalidCount" style="color: #dc3545;">0</p>
+            </div>
+            <div class="stat-card" style="background: #fff3cd; border-left: 4px solid #ffc107;">
+                <h3>⚠️ Cutoff Shifts</h3>
+                <p class="stat-number" id="cutoffCount" style="color: #ffc107;">0</p>
+            </div>
+            <div class="stat-card">
+                <h3>📊 Total Recharges</h3>
+                <p class="stat-number" id="totalRecharges">0</p>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>All Lottery Entries</h2>
+            
+            <div class="filter-section">
+                <h3>Filters</h3>
+                <div class="filter-grid">
+                    <div class="filter-item">
+                        <label>Game ID</label>
+                        <input type="text" id="filterGameId" placeholder="Search Game ID">
+                    </div>
+                    <div class="filter-item">
+                        <label>WhatsApp</label>
+                        <input type="text" id="filterWhatsApp" placeholder="Search WhatsApp">
+                    </div>
+                    <div class="filter-item">
+                        <label>Contest</label>
+                        <select id="filterContest">
+                            <option value="">All Contests</option>
+                        </select>
+                    </div>
+                    <div class="filter-item">
+                        <label>Draw Date</label>
+                        <select id="filterDrawDate">
+                            <option value="">All Dates</option>
+                        </select>
+                    </div>
+                    <div class="filter-item">
+                        <label>Validity</label>
+                        <select id="filterValidity">
+                            <option value="">All</option>
+                            <option value="VALID">✅ Valid Only</option>
+                            <option value="INVALID">❌ Invalid Only</option>
+                            <option value="UNKNOWN">❓ Unknown</option>
+                        </select>
+                    </div>
+                    <div class="filter-item">
+                        <label>Cutoff Flag</label>
+                        <select id="filterCutoff">
+                            <option value="">All</option>
+                            <option value="true">⚠️ Flagged Only</option>
+                        </select>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 10px; margin-top: 15px;">
+                    <button id="applyFiltersBtn" class="btn-primary">Apply Filters</button>
+                    <button id="clearFiltersBtn" class="btn-warning">Clear Filters</button>
+                    <button id="exportBtn" class="btn-success">Export to CSV</button>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table id="entriesTable">
+                    <thead>
+                        <tr>
+                            <th data-sort="validity">Validity ↕</th>
+                            <th data-sort="registrationDateTime">Registration Date/Time ↕</th>
+                            <th data-sort="gameId">Game ID ↕</th>
+                            <th data-sort="whatsapp">WhatsApp ↕</th>
+                            <th data-sort="chosenNumbers">Chosen Numbers</th>
+                            <th data-sort="drawDate">Draw Date ↕</th>
+                            <th data-sort="contest">Contest ↕</th>
+                            <th data-sort="ticketNumber">Ticket # ↕</th>
+                            <th>Recharge Info</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="entriesTableBody">
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="pagination">
+                <button id="prevPageBtn">Previous</button>
+                <span id="pageInfo">Page 1 of 1</span>
+                <button id="nextPageBtn">Next</button>
+                <select id="perPageSelect">
+                    <option value="25">25 per page</option>
+                    <option value="50" selected>50 per page</option>
+                    <option value="100">100 per page</option>
+                </select>
+            </div>
+        </div>
+    </main>
+
+    <!-- Dispute Modal -->
+    <div id="disputeModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>🔍 Ticket Validity Details</h2>
+                <span class="close-modal" onclick="closeDisputeModal()">&times;</span>
+            </div>
+            <div id="disputeContent">
+                <!-- Content will be populated by JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <div class="container">
+            <p>Last Updated: <span id="lastUpdate">Never</span></p>
+        </div>
+    </footer>
+
+    <script src="../data-fetcher.js"></script>
+    <script src="../validator.js"></script>
+    <script src="../recharge-validator.js"></script>
+    <script>
+        let currentPage = 1;
+        let perPage = 50;
+        let sortColumn = 'registrationDateTime';
+        let sortDirection = 'desc';
+        let filteredEntries = [];
+        let hasRechargeData = false;
+
+        async function init() {
+            showLoading(true);
+            try {
+                await dataFetcher.fetchData();
+                populateFilters();
+                applyFiltersAndDisplay();
+                updateLastUpdateTime();
+                showLoading(false);
+                setupEventListeners();
+            } catch (error) {
+                showError('Failed to load data: ' + error.message);
+                showLoading(false);
+            }
+        }
+
+        function populateFilters() {
+            const contests = dataFetcher.getUniqueContests();
+            const dates = dataFetcher.getUniqueDrawDates();
+            
+            const contestSelect = document.getElementById('filterContest');
+            contests.forEach(contest => {
+                const option = document.createElement('option');
+                option.value = contest;
+                option.textContent = contest;
+                contestSelect.appendChild(option);
+            });
+            
+            const dateSelect = document.getElementById('filterDrawDate');
+            dates.forEach(date => {
+                const option = document.createElement('option');
+                option.value = date;
+                option.textContent = date;
+                dateSelect.appendChild(option);
+            });
+        }
+
+        function handleRechargeUpload() {
+            const fileInput = document.getElementById('rechargeFileInput');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('Please select a CSV file');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const csvText = e.target.result;
+                    const recharges = rechargeValidator.parseRechargeCSV(csvText);
+                    
+                    document.getElementById('rechargeStatus').textContent = 
+                        `✅ ${recharges.length} recharges loaded`;
+                    document.getElementById('rechargeStatus').style.color = '#28a745';
+                    document.getElementById('clearRechargeBtn').style.display = 'inline-block';
+                    
+                    hasRechargeData = true;
+                    
+                    // Re-validate all entries
+                    applyFiltersAndDisplay();
+                    
+                    // Show validation stats
+                    document.getElementById('validationStats').style.display = 'grid';
+                    updateValidationStats();
+                    
+                    alert(`Successfully loaded ${recharges.length} recharge records!`);
+                } catch (error) {
+                    alert('Failed to parse recharge CSV: ' + error.message);
+                    console.error(error);
+                }
+            };
+            
+            reader.readAsText(file);
+        }
+
+        function clearRechargeData() {
+            if (!confirm('Clear recharge data? Validation will be reset.')) return;
+            
+            rechargeValidator.recharges = [];
+            rechargeValidator.validatedEntries = [];
+            hasRechargeData = false;
+            
+            document.getElementById('rechargeFileInput').value = '';
+            document.getElementById('rechargeStatus').textContent = '';
+            document.getElementById('clearRechargeBtn').style.display = 'none';
+            document.getElementById('validationStats').style.display = 'none';
+            
+            applyFiltersAndDisplay();
+        }
+
+        function updateValidationStats() {
+            const stats = rechargeValidator.getStatistics();
+            document.getElementById('validCount').textContent = stats.validTickets;
+            document.getElementById('invalidCount').textContent = stats.invalidTickets;
+            document.getElementById('cutoffCount').textContent = stats.cutoffShiftCases;
+            document.getElementById('totalRecharges').textContent = stats.totalRecharges;
+        }
+
+        function applyFiltersAndDisplay() {
+            const gameId = document.getElementById('filterGameId').value.toLowerCase();
+            const whatsapp = document.getElementById('filterWhatsApp').value.toLowerCase();
+            const contest = document.getElementById('filterContest').value;
+            const drawDate = document.getElementById('filterDrawDate').value;
+            const validity = document.getElementById('filterValidity').value;
+            const cutoffFlag = document.getElementById('filterCutoff').value;
+            
+            // Get entries and validate if recharge data exists
+            let entries = dataFetcher.getAllEntries();
+            if (hasRechargeData) {
+                entries = rechargeValidator.validateEntries(entries);
+            } else {
+                // Add default validity status
+                entries = entries.map(e => ({
+                    ...e,
+                    validity: 'UNKNOWN',
+                    invalidReasonCode: 'NO_RECHARGE_DATA',
+                    boundRechargeId: null
+                }));
+            }
+            
+            filteredEntries = entries.filter(entry => {
+                if (gameId && !entry.gameId.toLowerCase().includes(gameId)) return false;
+                if (whatsapp && !entry.whatsapp.toLowerCase().includes(whatsapp)) return false;
+                if (contest && entry.contest !== contest) return false;
+                if (drawDate && entry.drawDate !== drawDate) return false;
+                if (validity && entry.validity !== validity) return false;
+                if (cutoffFlag === 'true' && !entry.cutoffFlag) return false;
+                return true;
+            });
+            
+            sortEntries();
+            currentPage = 1;
+            displayEntries();
+            
+            if (hasRechargeData) {
+                updateValidationStats();
+            }
+        }
+
+        function sortEntries() {
+            filteredEntries.sort((a, b) => {
+                let aVal = a[sortColumn];
+                let bVal = b[sortColumn];
+                
+                if (sortColumn === 'chosenNumbers') {
+                    aVal = a.chosenNumbers.join(',');
+                    bVal = b.chosenNumbers.join(',');
+                }
+                
+                if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
+                if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+                return 0;
+            });
+        }
+
+        function displayEntries() {
+            const tbody = document.getElementById('entriesTableBody');
+            tbody.innerHTML = '';
+            
+            const start = (currentPage - 1) * perPage;
+            const end = start + perPage;
+            const pageEntries = filteredEntries.slice(start, end);
+            
+            pageEntries.forEach(entry => {
+                const row = tbody.insertRow();
+                
+                // Validity badge
+                let validityBadge = '';
+                if (entry.validity === 'VALID') {
+                    validityBadge = '<span class="badge badge-validated">✅ VALID</span>';
+                } else if (entry.validity === 'INVALID') {
+                    validityBadge = '<span class="badge badge-pending">❌ INVALID</span>';
+                } else {
+                    validityBadge = '<span class="badge" style="background: #6c757d; color: white;">❓ UNKNOWN</span>';
+                }
+                
+                if (entry.cutoffFlag) {
+                    validityBadge += ' <span class="badge badge-warning">⚠️ CUTOFF</span>';
+                }
+                
+                // Recharge info
+                let rechargeInfo = '';
+                if (entry.boundRechargeId) {
+                    rechargeInfo = `
+                        <div style="font-size: 11px;">
+                            <strong>ID:</strong> ${entry.boundRechargeId.substring(0, 16)}...<br>
+                            <strong>Time:</strong> ${entry.boundRechargeTime}<br>
+                            <strong>Amount:</strong> R$ ${entry.boundRechargeAmount}
+                        </div>
+                    `;
+                } else {
+                    rechargeInfo = '<span style="color: #999; font-size: 11px;">No recharge bound</span>';
+                }
+                
+                row.innerHTML = `
+                    <td>${validityBadge}</td>
+                    <td>${entry.registrationDateTime}</td>
+                    <td>${entry.gameId}</td>
+                    <td>${entry.whatsapp}</td>
+                    <td><strong>${entry.chosenNumbers.join(', ')}</strong></td>
+                    <td>${entry.drawDate}</td>
+                    <td><span class="badge badge-primary">${entry.contest}</span></td>
+                    <td>${entry.ticketNumber}</td>
+                    <td>${rechargeInfo}</td>
+                    <td>
+                        <button class="btn-primary" style="padding: 5px 10px; font-size: 12px;" 
+                                onclick='showDispute(${JSON.stringify(entry).replace(/'/g, "&apos;")})'>
+                            🔍 Details
+                        </button>
+                    </td>
+                `;
+            });
+            
+            updatePagination();
+        }
+
+        function showDispute(entry) {
+            const modal = document.getElementById('disputeModal');
+            const content = document.getElementById('disputeContent');
+            
+            let validityExplanation = '';
+            
+            if (entry.validity === 'VALID') {
+                validityExplanation = `
+                    <div style="padding: 15px; background: #d4edda; border-radius: 8px; border-left: 4px solid #28a745; margin-bottom: 20px;">
+                        <h3 style="color: #155724; margin-bottom: 10px;">✅ TICKET IS VALID</h3>
+                        <p style="margin: 0;">This is the first ticket created after recharge <strong>${entry.boundRechargeId}</strong>.</p>
+                    </div>
+                `;
+            } else if (entry.validity === 'INVALID') {
+                const reasonText = rechargeValidator.getReasonCodeText(entry.invalidReasonCode);
+                validityExplanation = `
+                    <div style="padding: 15px; background: #f8d7da; border-radius: 8px; border-left: 4px solid #dc3545; margin-bottom: 20px;">
+                        <h3 style="color: #721c24; margin-bottom: 10px;">❌ TICKET IS INVALID</h3>
+                        <p style="margin: 0;"><strong>Reason:</strong> ${reasonText}</p>
+                        ${entry.invalidReasonCode === 'NO_RECHARGE_BEFORE_TICKET' ? 
+                            '<p style="margin-top: 10px; font-size: 13px;">💡 This ticket was created without a preceding recharge, or all recharges were already consumed by earlier tickets.</p>' : ''}
+                    </div>
+                `;
+            } else {
+                validityExplanation = `
+                    <div style="padding: 15px; background: #fff3cd; border-radius: 8px; border-left: 4px solid #ffc107; margin-bottom: 20px;">
+                        <h3 style="color: #856404; margin-bottom: 10px;">❓ VALIDITY UNKNOWN</h3>
+                        <p style="margin: 0;">Upload recharge data to validate this ticket.</p>
+                    </div>
+                `;
+            }
+            
+            let cutoffWarning = '';
+            if (entry.cutoffFlag) {
+                cutoffWarning = `
+                    <div style="padding: 15px; background: #fff3cd; border-radius: 8px; border-left: 4px solid #ffc107; margin-bottom: 20px;">
+                        <h3 style="color: #856404; margin-bottom: 10px;">⚠️ CUTOFF TIME SHIFT DETECTED</h3>
+                        <p style="margin: 0;">Recharge happened before 20:00:00, but ticket was created after 20:00:01. This ticket belongs to tomorrow's draw.</p>
+                    </div>
+                `;
+            }
+            
+            content.innerHTML = `
+                ${validityExplanation}
+                ${cutoffWarning}
+                
+                <h3 style="margin-bottom: 15px;">📋 Ticket Information</h3>
+                <table style="width: 100%; margin-bottom: 20px;">
+                    <tr>
+                        <td><strong>Game ID:</strong></td>
+                        <td>${entry.gameId}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>WhatsApp:</strong></td>
+                        <td>${entry.whatsapp}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Ticket #:</strong></td>
+                        <td>${entry.ticketNumber}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Registration Time:</strong></td>
+                        <td>${entry.registrationDateTime}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Contest:</strong></td>
+                        <td>${entry.contest}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Draw Date:</strong></td>
+                        <td>${entry.drawDate}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Chosen Numbers:</strong></td>
+                        <td><strong>${entry.chosenNumbers.join(', ')}</strong></td>
+                    </tr>
+                </table>
+                
+                ${entry.boundRechargeId ? `
+                    <h3 style="margin-bottom: 15px;">💳 Bound Recharge Information</h3>
+                    <table style="width: 100%;">
+                        <tr>
+                            <td><strong>Recharge ID:</strong></td>
+                            <td>${entry.boundRechargeId}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Recharge Time:</strong></td>
+                            <td>${entry.boundRechargeTime}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Recharge Amount:</strong></td>
+                            <td>R$ ${entry.boundRechargeAmount}</td>
+                        </tr>
+                    </table>
+                ` : '<p style="color: #999; font-style: italic;">No recharge data available for this ticket.</p>'}
+            `;
+            
+            modal.classList.add('active');
+        }
+
+        function closeDisputeModal() {
+            document.getElementById('disputeModal').classList.remove('active');
+        }
+
+        function updatePagination() {
+            const totalPages = Math.ceil(filteredEntries.length / perPage);
+            document.getElementById('pageInfo').textContent = `Page ${currentPage} of ${totalPages} (${filteredEntries.length} entries)`;
+            document.getElementById('prevPageBtn').disabled = currentPage === 1;
+            document.getElementById('nextPageBtn').disabled = currentPage === totalPages;
+        }
+
+        function exportToCSV() {
+            let csv = 'Validity,Registration Date/Time,Game ID,WhatsApp,Chosen Numbers,Draw Date,Contest,Ticket #,Bound Recharge ID,Recharge Time,Recharge Amount,Invalid Reason,Cutoff Flag\n';
+            
+            filteredEntries.forEach(entry => {
+                csv += `"${entry.validity}",`;
+                csv += `"${entry.registrationDateTime}",`;
+                csv += `"${entry.gameId}",`;
+                csv += `"${entry.whatsapp}",`;
+                csv += `"${entry.chosenNumbers.join(', ')}",`;
+                csv += `"${entry.drawDate}",`;
+                csv += `"${entry.contest}",`;
+                csv += `"${entry.ticketNumber}",`;
+                csv += `"${entry.boundRechargeId || ''}",`;
+                csv += `"${entry.boundRechargeTime || ''}",`;
+                csv += `"${entry.boundRechargeAmount || ''}",`;
+                csv += `"${entry.invalidReasonCode || ''}",`;
+                csv += `"${entry.cutoffFlag ? 'YES' : 'NO'}"\n`;
+            });
+            
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `lottery_entries_validated_${new Date().toISOString()}.csv`;
+            a.click();
+        }
+
+        function setupEventListeners() {
+            document.getElementById('uploadRechargeBtn').addEventListener('click', handleRechargeUpload);
+            document.getElementById('clearRechargeBtn').addEventListener('click', clearRechargeData);
+            document.getElementById('applyFiltersBtn').addEventListener('click', applyFiltersAndDisplay);
+            document.getElementById('clearFiltersBtn').addEventListener('click', () => {
+                document.getElementById('filterGameId').value = '';
+                document.getElementById('filterWhatsApp').value = '';
+                document.getElementById('filterContest').value = '';
+                document.getElementById('filterDrawDate').value = '';
+                document.getElementById('filterValidity').value = '';
+                document.getElementById('filterCutoff').value = '';
+                applyFiltersAndDisplay();
+            });
+            document.getElementById('exportBtn').addEventListener('click', exportToCSV);
+            document.getElementById('refreshBtn').addEventListener('click', init);
+            
+            document.getElementById('prevPageBtn').addEventListener('click', () => {
+                if (currentPage > 1) {
+                    currentPage--;
+                    displayEntries();
+                }
+            });
+            
+            document.getElementById('nextPageBtn').addEventListener('click', () => {
+                const totalPages = Math.ceil(filteredEntries.length / perPage);
+                if (currentPage < totalPages) {
+                    currentPage++;
+                    displayEntries();
+                }
+            });
+            
+            document.getElementById('perPageSelect').addEventListener('change', (e) => {
+                perPage = parseInt(e.target.value);
+                currentPage = 1;
+                displayEntries();
+            });
+            
+            document.querySelectorAll('th[data-sort]').forEach(th => {
+                th.addEventListener('click', () => {
+                    const column = th.getAttribute('data-sort');
+                    if (sortColumn === column) {
+                        sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+                    } else {
+                        sortColumn = column;
+                        sortDirection = 'asc';
+                    }
+                    applyFiltersAndDisplay();
+                });
+            });
+            
+            // Close modal on outside click
+            document.getElementById('disputeModal').addEventListener('click', (e) => {
+                if (e.target.id === 'disputeModal') {
+                    closeDisputeModal();
+                }
+            });
+        }
+
+        function showLoading(show) {
+            document.getElementById('loadingIndicator').style.display = show ? 'block' : 'none';
+        }
+
+        function showError(message) {
+            const errorMsg = document.getElementById('errorMessage');
+            errorMsg.textContent = message;
+            errorMsg.style.display = 'block';
+        }
+
+        function updateLastUpdateTime() {
+            const lastUpdate = document.getElementById('lastUpdate');
+            if (dataFetcher.lastFetchTime) {
+                lastUpdate.textContent = dataFetcher.lastFetchTime.toLocaleString('pt-BR');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

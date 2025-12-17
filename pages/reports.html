@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reports - Lottery Admin</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>🎰 Lottery Admin Dashboard</h1>
+            <button id="refreshBtn" class="btn-refresh">🔄 Refresh Data</button>
+        </div>
+    </header>
+
+    <nav class="navbar">
+        <div class="container">
+            <a href="../index.html">Dashboard</a>
+            <a href="entries.html">All Entries</a>
+            <a href="results.html">Contest Results</a>
+            <a href="winners.html">Winners</a>
+            <a href="reports.html" class="active">Reports</a>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div id="loadingIndicator" class="loading">Loading data...</div>
+
+        <div class="section">
+            <h2>📊 Complete System Report</h2>
+            
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>Total Entries</h3>
+                    <p class="stat-number" id="reportTotalEntries">0</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Total Winners</h3>
+                    <p class="stat-number" id="reportTotalWinners">0</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Win Rate</h3>
+                    <p class="stat-number" id="reportWinRate">0%</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Contests Completed</h3>
+                    <p class="stat-number" id="reportCompletedContests">0</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>🏆 Winners Breakdown by Contest</h2>
+            <div id="contestWinnersBreakdown"></div>
+        </div>
+
+        <div class="section">
+            <h2>📅 Entries Timeline</h2>
+            <div id="entriesTimeline"></div>
+        </div>
+
+        <div class="section">
+            <h2>📞 Top Players (by WhatsApp)</h2>
+            <div class="table-container">
+                <table id="topPlayersTable">
+                    <thead>
+                        <tr>
+                            <th>Rank</th>
+                            <th>WhatsApp</th>
+                            <th>Total Entries</th>
+                            <th>Total Wins</th>
+                            <th>Win Rate</th>
+                            <th>Best Prize</th>
+                        </tr>
+                    </thead>
+                    <tbody id="topPlayersTableBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>🎯 Number Frequency Analysis</h2>
+            <div style="margin-bottom: 20px;">
+                <button id="showMostFrequentBtn" class="btn-primary">Most Frequent Numbers</button>
+                <button id="showLeastFrequentBtn" class="btn-warning">Least Frequent Numbers</button>
+            </div>
+            <div id="numberFrequencyChart"></div>
+        </div>
+
+        <div class="section">
+            <h2>💰 Prize Distribution</h2>
+            <div id="prizeDistribution"></div>
+        </div>
+
+        <div class="section">
+            <h2>📥 Export All Reports</h2>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <button id="exportFullReportBtn" class="btn-success">📄 Export Full Report (CSV)</button>
+                <button id="exportWinnersReportBtn" class="btn-success">🏆 Export Winners Report (CSV)</button>
+                <button id="exportContestReportBtn" class="btn-success">🎲 Export Contest Report (CSV)</button>
+                <button id="printReportBtn" class="btn-primary">🖨️ Print Report</button>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>Last Updated: <span id="lastUpdate">Never</span></p>
+        </div>
+    </footer>
+
+    <script src="../data-fetcher.js"></script>
+    <script src="../validator.js"></script>
+    <script>
+        async function init() {
+            showLoading(true);
+            try {
+                await dataFetcher.fetchData();
+                generateReports();
+                updateLastUpdateTime();
+                showLoading(false);
+                setupEventListeners();
+            } catch (error) {
+                console.error('Failed to load data:', error);
+                showLoading(false);
+            }
+        }
+
+        function generateReports() {
+            const allEntries = dataFetcher. getAllEntries();
+            const allWinners = validator.getWinners(allEntries);
+            const results = validator.getAllResults();
+            
+            // Update summary stats
+            document.getElementById('reportTotalEntries').textContent = allEntries.length;
+            document.getElementById('reportTotalWinners').textContent = allWinners.length;
+            const winRate = allEntries.length > 0 ?  ((allWinners.length / allEntries.length) * 100).toFixed(2) : 0;
+            document.getElementById('reportWinRate').textContent = winRate + '%';
+            document.getElementById('reportCompletedContests').textContent = results.length;
+            
+            // Generate contest winners breakdown
+            generateContestWinnersBreakdown(allEntries, results);
+            
+            // Generate timeline
+            generateEntriesTimeline(allEntries);
+            
+            // Generate top players
+            generateTopPlayers(allEntries, allWinners);
+            
+            // Generate number frequency
+            generateNumberFrequency(allEntries);
+            
+            // Generate prize distribution
+            generatePrizeDistribution(allWinners);
+        }
+
+        function generateContestWinnersBreakdown(entries, results) {
+            const container = document.getElementById('contestWinnersBreakdown');
+            container.innerHTML = '';
+            
+            if (results.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #999; padding: 20px;">No contest results configured yet</p>';
+                return;
+            }
+            
+            results.forEach(result => {
+                const contestWinners = validator.getWinnersByContest(entries, result.contest);
+                
+                const grand = contestWinners.filter(w => w.validation.matches === 5).length;
+                const second = contestWinners. filter(w => w.validation. matches === 4).length;
+                const third = contestWinners.filter(w => w.validation.matches === 3).length;
+                const consolation = contestWinners.filter(w => w.validation.matches === 2).length;
+                
+                const contestEntries = entries.filter(e => e.contest === result.contest && e.drawDate === result.drawDate);
+                
+                const card = document.createElement('div');
+                card.style.cssText = 'background: #f0f4ff; padding: 20px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid #1e3c72;';
+                card.innerHTML = `
+                    <h3 style="color:  #1e3c72; margin-bottom: 10px;">Contest ${result.contest} - ${result.drawDate}</h3>
+                    <p style="margin-bottom: 10px;"><strong>Winning Numbers:</strong> ${result.winningNumbers.join(', ')}</p>
+                    <p style="margin-bottom: 10px;"><strong>Total Entries:</strong> ${contestEntries.length}</p>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-top: 15px;">
+                        <div style="background: white; padding: 10px; border-radius: 5px; text-align: center;">
+                            <div style="font-size: 24px;">🏆</div>
+                            <div style="font-size: 20px; font-weight: bold; color: #FFD700;">${grand}</div>
+                            <div style="font-size:  12px; color: #666;">Grand Prize</div>
+                        </div>
+                        <div style="background: white; padding:  10px; border-radius:  5px; text-align:  center;">
+                            <div style="font-size: 24px;">🥈</div>
+                            <div style="font-size: 20px; font-weight: bold; color: #C0C0C0;">${second}</div>
+                            <div style="font-size: 12px; color: #666;">2nd Prize</div>
+                        </div>
+                        <div style="background: white; padding: 10px; border-radius: 5px; text-align: center;">
+                            <div style="font-size: 24px;">🥉</div>
+                            <div style="font-size:  20px; font-weight:  bold; color: #CD7F32;">${third}</div>
+                            <div style="font-size: 12px; color: #666;">3rd Prize</div>
+                        </div>
+                        <div style="background: white; padding: 10px; border-radius: 5px; text-align: center;">
+                            <div style="font-size: 24px;">🎁</div>
+                            <div style="font-size: 20px; font-weight: bold; color: #4CAF50;">${consolation}</div>
+                            <div style="font-size: 12px; color: #666;">Consolation</div>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function generateEntriesTimeline(entries) {
+            const container = document.getElementById('entriesTimeline');
+            container.innerHTML = '';
+            
+            const dateGroups = {};
+            entries.forEach(entry => {
+                const date = entry.drawDate;
+                if (!dateGroups[date]) {
+                    dateGroups[date] = 0;
+                }
+                dateGroups[date]++;
+            });
+            
+            const sortedDates = Object.keys(dateGroups).sort();
+            
+            sortedDates.forEach(date => {
+                const count = dateGroups[date];
+                const maxCount = Math.max(...Object. values(dateGroups));
+                const barWidth = (count / maxCount) * 100;
+                
+                const bar = document.createElement('div');
+                bar.style. cssText = 'margin-bottom: 15px;';
+                bar.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                        <strong>${date}</strong>
+                        <span>${count} entries</span>
+                    </div>
+                    <div style="background: #e0e0e0; height: 30px; border-radius: 5px; overflow: hidden;">
+                        <div style="background: linear-gradient(90deg, #1e3c72, #2a5298); width: ${barWidth}%; height: 100%; display: flex; align-items: center; justify-content: flex-end; padding-right: 10px; color: white; font-weight: bold; transition: width 0.3s;">
+                            ${count}
+                        </div>
+                    </div>
+                `;
+                container.appendChild(bar);
+            });
+        }
+
+        function generateTopPlayers(entries, winners) {
+            const tbody = document.getElementById('topPlayersTableBody');
+            tbody.innerHTML = '';
+            
+            const playerStats = {};
+            
+            entries.forEach(entry => {
+                const phone = entry.whatsapp || 'N/A';
+                if (!playerStats[phone]) {
+                    playerStats[phone] = {
+                        totalEntries: 0,
+                        totalWins: 0,
+                        bestPrize: 0
+                    };
+                }
+                playerStats[phone].totalEntries++;
+            });
+            
+            winners.forEach(winner => {
+                const phone = winner.whatsapp || 'N/A';
+                if (playerStats[phone]) {
+                    playerStats[phone].totalWins++;
+                    if (winner.validation.matches > playerStats[phone].bestPrize) {
+                        playerStats[phone].bestPrize = winner.validation.matches;
+                    }
+                }
+            });
+            
+            const sortedPlayers = Object.entries(playerStats)
+                .sort((a, b) => b[1].totalEntries - a[1].totalEntries)
+                .slice(0, 20);
+            
+            sortedPlayers.forEach(([phone, stats], index) => {
+                const winRate = ((stats.totalWins / stats. totalEntries) * 100).toFixed(2);
+                const bestPrizeText = stats.bestPrize === 5 ? '🏆 Grand Prize' : 
+                                      stats.bestPrize === 4 ? '🥈 2nd Prize' :
+                                      stats.bestPrize === 3 ?  '🥉 3rd Prize' :
+                                      stats.bestPrize === 2 ? '🎁 Consolation' : 'None';
+                
+                const row = tbody.insertRow();
+                row. innerHTML = `
+                    <td><strong>${index + 1}</strong></td>
+                    <td>${phone}</td>
+                    <td>${stats.totalEntries}</td>
+                    <td>${stats.totalWins}</td>
+                    <td>${winRate}%</td>
+                    <td>${bestPrizeText}</td>
+                `;
+            });
+        }
+
+        function generateNumberFrequency(entries) {
+            const container = document. getElementById('numberFrequencyChart');
+            
+            const frequency = {};
+            for (let i = 1; i <= 80; i++) {
+                frequency[i] = 0;
+            }
+            
+            entries.forEach(entry => {
+                entry.chosenNumbers.forEach(num => {
+                    frequency[num]++;
+                });
+            });
+            
+            displayNumberFrequency(frequency, 'most');
+        }
+
+        function displayNumberFrequency(frequency, mode) {
+            const container = document.getElementById('numberFrequencyChart');
+            container.innerHTML = '';
+            
+            const sorted = Object.entries(frequency)
+                .sort((a, b) => mode === 'most' ? b[1] - a[1] :  a[1] - b[1])
+                .slice(0, 20);
+            
+            const maxFreq = Math.max(...sorted.map(([_, freq]) => freq));
+            
+            sorted.forEach(([number, freq]) => {
+                const barWidth = (freq / maxFreq) * 100;
+                
+                const bar = document.createElement('div');
+                bar.style. cssText = 'margin-bottom: 10px;';
+                bar.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
+                        <strong>Number ${number}</strong>
+                        <span>${freq} times</span>
+                    </div>
+                    <div style="background: #e0e0e0; height: 25px; border-radius: 5px; overflow: hidden;">
+                        <div style="background: ${mode === 'most' ? '#4CAF50' : '#ff9800'}; width: ${barWidth}%; height: 100%; display: flex; align-items: center; padding-left: 10px; color: white; font-weight: bold;">
+                            ${freq}
+                        </div>
+                    </div>
+                `;
+                container.appendChild(bar);
+            });
+        }
+
+        function generatePrizeDistribution(winners) {
+            const container = document. getElementById('prizeDistribution');
+            container.innerHTML = '';
+            
+            const grand = winners.filter(w => w.validation.matches === 5).length;
+            const second = winners.filter(w => w.validation.matches === 4).length;
+            const third = winners.filter(w => w.validation.matches === 3).length;
+            const consolation = winners.filter(w => w.validation.matches === 2).length;
+            
+            const total = winners.length;
+            
+            const prizes = [
+                { name: '🏆 Grand Prize (5 matches)', count: grand, color: '#FFD700' },
+                { name: '🥈 2nd Prize (4 matches)', count: second, color: '#C0C0C0' },
+                { name: '🥉 3rd Prize (3 matches)', count: third, color: '#CD7F32' },
+                { name: '🎁 Consolation (2 matches)', count: consolation, color: '#4CAF50' }
+            ];
+            
+            prizes.forEach(prize => {
+                const percentage = total > 0 ? ((prize.count / total) * 100).toFixed(2) : 0;
+                
+                const bar = document.createElement('div');
+                bar.style. cssText = 'margin-bottom: 20px;';
+                bar.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                        <strong>${prize.name}</strong>
+                        <span>${prize.count} winners (${percentage}%)</span>
+                    </div>
+                    <div style="background: #e0e0e0; height: 40px; border-radius: 5px; overflow: hidden;">
+                        <div style="background: ${prize.color}; width: ${percentage}%; height: 100%; display: flex; align-items:  center; padding-left: 15px; color: ${prize.color === '#FFD700' || prize.color === '#C0C0C0' ? '#333' : 'white'}; font-weight: bold; font-size: 18px;">
+                            ${prize. count}
+                        </div>
+                    </div>
+                `;
+                container.appendChild(bar);
+            });
+        }
+
+        function exportFullReport() {
+            const entries = dataFetcher.getAllEntries();
+            let csv = 'Registration Date/Time,Game ID,WhatsApp,Chosen Numbers,Draw Date,Contest,Ticket #,Status\n';
+            
+            entries.forEach(entry => {
+                csv += `"${entry.registrationDateTime}","${entry.gameId}","${entry.whatsapp}","${entry.chosenNumbers. join(', ')}","${entry.drawDate}","${entry. contest}","${entry.ticketNumber}","${entry.status}"\n`;
+            });
+            
+            downloadCSV(csv, 'full_report');
+        }
+
+        function exportWinnersReport() {
+            const entries = dataFetcher.getAllEntries();
+            const winners = validator.getWinners(entries);
+            
+            let csv = 'Prize,Matches,Game ID,WhatsApp,Chosen Numbers,Winning Numbers,Matched Numbers,Draw Date,Contest\n';
+            
+            winners. forEach(winner => {
+                const val = winner.validation;
+                csv += `"${val.prizeTier. tier}","${val.matches}","${winner.gameId}","${winner.whatsapp}","${winner.chosenNumbers.join(', ')}","${val.winningNumbers.join(', ')}","${val.matchedNumbers.join(', ')}","${winner.drawDate}","${winner.contest}"\n`;
+            });
+            
+            downloadCSV(csv, 'winners_report');
+        }
+
+        function exportContestReport() {
+            const results = validator.getAllResults();
+            let csv = 'Contest,Draw Date,Winning Numbers,Total Entries,Grand Prize,2nd Prize,3rd Prize,Consolation\n';
+            
+            results. forEach(result => {
+                const entries = dataFetcher.getAllEntries().filter(e => e.contest === result.contest && e.drawDate === result.drawDate);
+                const winners = validator.getWinnersByContest(entries, result.contest);
+                
+                const grand = winners.filter(w => w.validation.matches === 5).length;
+                const second = winners.filter(w => w.validation.matches === 4).length;
+                const third = winners.filter(w => w.validation.matches === 3).length;
+                const consolation = winners.filter(w => w.validation.matches === 2).length;
+                
+                csv += `"${result.contest}","${result.drawDate}","${result.winningNumbers.join(', ')}","${entries.length}","${grand}","${second}","${third}","${consolation}"\n`;
+            });
+            
+            downloadCSV(csv, 'contest_report');
+        }
+
+        function downloadCSV(csv, filename) {
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document. createElement('a');
+            a.href = url;
+            a. download = `${filename}_${new Date().toISOString()}.csv`;
+            a.click();
+        }
+
+        function printReport() {
+            window.print();
+        }
+
+        function setupEventListeners() {
+            document. getElementById('refreshBtn').addEventListener('click', init);
+            document.getElementById('exportFullReportBtn').addEventListener('click', exportFullReport);
+            document. getElementById('exportWinnersReportBtn').addEventListener('click', exportWinnersReport);
+            document. getElementById('exportContestReportBtn').addEventListener('click', exportContestReport);
+            document.getElementById('printReportBtn').addEventListener('click', printReport);
+            
+            document.getElementById('showMostFrequentBtn').addEventListener('click', () => {
+                const entries = dataFetcher. getAllEntries();
+                const frequency = {};
+                for (let i = 1; i <= 80; i++) frequency[i] = 0;
+                entries.forEach(entry => entry.chosenNumbers.forEach(num => frequency[num]++));
+                displayNumberFrequency(frequency, 'most');
+            });
+            
+            document.getElementById('showLeastFrequentBtn').addEventListener('click', () => {
+                const entries = dataFetcher.getAllEntries();
+                const frequency = {};
+                for (let i = 1; i <= 80; i++) frequency[i] = 0;
+                entries. forEach(entry => entry.chosenNumbers.forEach(num => frequency[num]++));
+                displayNumberFrequency(frequency, 'least');
+            });
+        }
+
+        function showLoading(show) {
+            const loading = document.getElementById('loadingIndicator');
+            if (loading) {
+                loading.style.display = show ? 'block' : 'none';
+            }
+        }
+
+        function updateLastUpdateTime() {
+            const lastUpdate = document.getElementById('lastUpdate');
+            if (dataFetcher.lastFetchTime) {
+                lastUpdate.textContent = dataFetcher.lastFetchTime.toLocaleString('pt-BR');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
