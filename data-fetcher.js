@@ -1,4 +1,4 @@
-const GOOGLE_SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vR9kvcSD6epJAeY1UbBTqfHQ-Ap171_Wu6Goxq1uOtxF0Xv4ofuI6Vb5l0_iuYo2vOLaD0Qr00DVYKD/pub?output=csv';
+const GOOGLE_SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/1OttNYHiecAuGG6IRX7lW6lkG5ciEcL8gp3g6lNrN9H8/export?format=csv&gid=0';
 
 class DataFetcher {
     constructor() {

@@ -28,15 +28,13 @@
         <div id="loadingIndicator" class="loading">Loading data...</div>
         <div id="errorMessage" class="error-message" style="display: none;"></div>
 
-        <!-- Recharge Upload Section -->
-        <div class="section" style="background: #fff3cd; border-left: 4px solid #ffc107;">
-            <h2>📤 Upload Recharge Data (Required for Validity Check)</h2>
-            <p style="margin-bottom: 15px;">Upload the account_change CSV file to validate ticket legitimacy based on recharge timeline.</p>
+        <!-- Recharge Data Status Section -->
+        <div class="section" style="background: #d4edda; border-left: 4px solid #28a745;">
+            <h2>📊 Recharge Data Status</h2>
+            <p style="margin-bottom: 15px;">Recharge data is automatically fetched from Google Sheets for real-time validation.</p>
             <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-                <input type="file" id="rechargeFileInput" accept=".csv" style="padding: 10px;">
-                <button id="uploadRechargeBtn" class="btn-success">Upload & Validate</button>
-                <button id="clearRechargeBtn" class="btn-danger" style="display: none;">Clear Recharge Data</button>
-                <span id="rechargeStatus" style="margin-left: 10px; font-weight: bold;"></span>
+                <span id="rechargeStatus" style="font-weight: bold;">🔄 Loading recharge data...</span>
+                <span id="rechargeLastUpdate" style="margin-left: 10px; color: #666; font-size: 14px;"></span>
             </div>
         </div>
 
@@ -177,7 +175,10 @@
         async function init() {
             showLoading(true);
             try {
+                // Fetch both ticket data and recharge data
                 await dataFetcher.fetchData();
+                await fetchRechargeDataAuto();
+                
                 populateFilters();
                 applyFiltersAndDisplay();
                 updateLastUpdateTime();
@@ -186,6 +187,29 @@
             } catch (error) {
                 showError('Failed to load data: ' + error.message);
                 showLoading(false);
+            }
+        }
+
+        async function fetchRechargeDataAuto() {
+            try {
+                const recharges = await rechargeValidator.fetchRechargeData();
+                
+                document.getElementById('rechargeStatus').textContent = 
+                    `✅ ${recharges.length} recharges loaded`;
+                document.getElementById('rechargeStatus').style.color = '#28a745';
+                
+                hasRechargeData = true;
+                
+                // Show validation stats
+                document.getElementById('validationStats').style.display = 'grid';
+                updateValidationStats();
+                updateRechargeLastUpdateTime();
+            } catch (error) {
+                document.getElementById('rechargeStatus').textContent = 
+                    '❌ Failed to load recharge data';
+                document.getElementById('rechargeStatus').style.color = '#dc3545';
+                console.error('Failed to fetch recharge data:', error);
+                // Continue without recharge data
             }
         }
 
@@ -210,58 +234,11 @@
             });
         }
 
-        function handleRechargeUpload() {
-            const fileInput = document.getElementById('rechargeFileInput');
-            const file = fileInput.files[0];
-            
-            if (!file) {
-                alert('Please select a CSV file');
-                return;
+        function updateRechargeLastUpdateTime() {
+            const lastUpdate = document.getElementById('rechargeLastUpdate');
+            if (rechargeValidator.lastFetchTime) {
+                lastUpdate.textContent = `Last updated: ${rechargeValidator.lastFetchTime.toLocaleString('pt-BR')}`;
             }
-
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const csvText = e.target.result;
-                    const recharges = rechargeValidator.parseRechargeCSV(csvText);
-                    
-                    document.getElementById('rechargeStatus').textContent = 
-                        `✅ ${recharges.length} recharges loaded`;
-                    document.getElementById('rechargeStatus').style.color = '#28a745';
-                    document.getElementById('clearRechargeBtn').style.display = 'inline-block';
-                    
-                    hasRechargeData = true;
-                    
-                    // Re-validate all entries
-                    applyFiltersAndDisplay();
-                    
-                    // Show validation stats
-                    document.getElementById('validationStats').style.display = 'grid';
-                    updateValidationStats();
-                    
-                    alert(`Successfully loaded ${recharges.length} recharge records!`);
-                } catch (error) {
-                    alert('Failed to parse recharge CSV: ' + error.message);
-                    console.error(error);
-                }
-            };
-            
-            reader.readAsText(file);
-        }
-
-        function clearRechargeData() {
-            if (!confirm('Clear recharge data? Validation will be reset.')) return;
-            
-            rechargeValidator.recharges = [];
-            rechargeValidator.validatedEntries = [];
-            hasRechargeData = false;
-            
-            document.getElementById('rechargeFileInput').value = '';
-            document.getElementById('rechargeStatus').textContent = '';
-            document.getElementById('clearRechargeBtn').style.display = 'none';
-            document.getElementById('validationStats').style.display = 'none';
-            
-            applyFiltersAndDisplay();
         }
 
         function updateValidationStats() {
@@ -529,8 +506,6 @@
         }
 
         function setupEventListeners() {
-            document.getElementById('uploadRechargeBtn').addEventListener('click', handleRechargeUpload);
-            document.getElementById('clearRechargeBtn').addEventListener('click', clearRechargeData);
             document.getElementById('applyFiltersBtn').addEventListener('click', applyFiltersAndDisplay);
             document.getElementById('clearFiltersBtn').addEventListener('click', () => {
                 document.getElementById('filterGameId').value = '';
@@ -542,7 +517,11 @@
                 applyFiltersAndDisplay();
             });
             document.getElementById('exportBtn').addEventListener('click', exportToCSV);
-            document.getElementById('refreshBtn').addEventListener('click', init);
+            document.getElementById('refreshBtn').addEventListener('click', async () => {
+                showLoading(true);
+                await init();
+                showLoading(false);
+            });
             
             document.getElementById('prevPageBtn').addEventListener('click', () => {
                 if (currentPage > 1) {
